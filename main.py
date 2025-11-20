@@ -140,14 +140,6 @@ class InventoryDashboard(ctk.CTk):
         footer_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
         footer_frame.pack(side="bottom", pady=20, padx=20, fill="x")
 
-        version_label = ctk.CTkLabel(
-            footer_frame,
-            text="v2.0.0",
-            font=("Arial", 10),
-            text_color="#808080"
-        )
-        version_label.pack()
-
     def create_main_content(self):
         """Create main content area"""
         main_frame = ctk.CTkFrame(self, fg_color="#0f0f0f")
@@ -419,8 +411,9 @@ class InventoryDashboard(ctk.CTk):
         """Show dialog to add new product"""
         dialog = ctk.CTkToplevel(self)
         dialog.title("Add New Product")
-        dialog.geometry("450x400")
+        dialog.geometry("450x430")
         dialog.grab_set()
+        dialog.resizable(False, False)
 
         # Form fields
         fields = {
