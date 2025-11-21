@@ -46,35 +46,9 @@ class InventoryDashboard(ctk.CTk):
     def load_default_data(self):
         """Load default sample data"""
         self.inventory_data = [
-            {"id": "P001", "name": "Laptop", "category": "Electronics", "quantity": 15, "price": 899.99,
-             "status": "In Stock"},
-            {"id": "P002", "name": "Monitor", "category": "Electronics", "quantity": 3, "price": 299.99,
-             "status": "Low Stock"},
-            {"id": "P003", "name": "Keyboard", "category": "Accessories", "quantity": 0, "price": 79.99,
-             "status": "Out of Stock"},
-            {"id": "P004", "name": "Mouse", "category": "Accessories", "quantity": 45, "price": 29.99,
-             "status": "In Stock"},
-            {"id": "P005", "name": "USB Cable", "category": "Accessories", "quantity": 120, "price": 9.99,
-             "status": "In Stock"},
-            {"id": "P006", "name": "Headphones", "category": "Electronics", "quantity": 8, "price": 149.99,
-             "status": "Low Stock"},
-            {"id": "P007", "name": "Webcam", "category": "Electronics", "quantity": 25, "price": 79.99,
-             "status": "In Stock"},
-            {"id": "P008", "name": "Monitor Stand", "category": "Accessories", "quantity": 0, "price": 39.99,
-             "status": "Out of Stock"},
         ]
 
         self.suppliers_data = [
-            {"id": "101", "name": "ABC Electronics", "contact": "09171234567", "email": "contact@abcelectronics.com",
-             "status": "Active"},
-            {"id": "102", "name": "Tech Supplies Co.", "contact": "09281234567", "email": "info@techsupplies.com",
-             "status": "Active"},
-            {"id": "103", "name": "Gadgets Plus", "contact": "09391234567", "email": "sales@gadgetsplus.com",
-             "status": "Inactive"},
-            {"id": "104", "name": "Digital World", "contact": "09501234567", "email": "support@digitalworld.com",
-             "status": "Active"},
-            {"id": "105", "name": "Premium Components", "contact": "09611234567", "email": "sales@premiumcomp.com",
-             "status": "Active"},
         ]
 
     def save_data(self):
@@ -139,6 +113,14 @@ class InventoryDashboard(ctk.CTk):
         # Footer info
         footer_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
         footer_frame.pack(side="bottom", pady=20, padx=20, fill="x")
+
+        version_label = ctk.CTkLabel(
+            footer_frame,
+            text="ADMIN",
+            font=("Arial", 15),
+            text_color="#808080"
+        )
+        version_label.pack()
 
     def create_main_content(self):
         """Create main content area"""
@@ -411,9 +393,8 @@ class InventoryDashboard(ctk.CTk):
         """Show dialog to add new product"""
         dialog = ctk.CTkToplevel(self)
         dialog.title("Add New Product")
-        dialog.geometry("450x430")
+        dialog.geometry("450x500")
         dialog.grab_set()
-        dialog.resizable(False, False)
 
         # Form fields
         fields = {
@@ -431,7 +412,7 @@ class InventoryDashboard(ctk.CTk):
             if field == "Category":
                 entry = ctk.CTkOptionMenu(
                     dialog,
-                    values=["Electronics", "Accessories", "Software", "Hardware"],
+                    values=["Electronics", "Accessories", "Hardware"],
                     variable=var,
                     font=("Arial", 11)
                 )
@@ -498,7 +479,7 @@ class InventoryDashboard(ctk.CTk):
             if field == "Category":
                 entry = ctk.CTkOptionMenu(
                     dialog,
-                    values=["Electronics", "Accessories", "Software", "Hardware"],
+                    values=["Electronics", "Accessories", "Hardware"],
                     variable=var,
                     font=("Arial", 11)
                 )
@@ -683,7 +664,7 @@ class InventoryDashboard(ctk.CTk):
         """Show dialog to add new supplier"""
         dialog = ctk.CTkToplevel(self)
         dialog.title("Add New Supplier")
-        dialog.geometry("450x400")
+        dialog.geometry("450x500")
         dialog.grab_set()
 
         fields = {
