@@ -5,9 +5,11 @@ from datetime import datetime
 import json
 import os
 
+
 # Set appearance mode
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
+
 
 class InventoryDashboard(ctk.CTk):
     def __init__(self):
@@ -16,18 +18,13 @@ class InventoryDashboard(ctk.CTk):
         self.title("HardTrack")
         self.geometry("1240x700")
 
-        # Configure grid weights for responsiveness
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        # Data file for persistence
         self.data_file = "inventory_data.json"
         self.load_data()
 
-        # Create sidebar
         self.create_sidebar()
-
-        # Create main content area
         self.create_main_content()
 
     def load_data(self):
@@ -43,13 +40,14 @@ class InventoryDashboard(ctk.CTk):
         else:
             self.load_default_data()
 
+        # keep a master copy for searching
+        self.all_inventory_data = list(self.inventory_data)
+
     def load_default_data(self):
         """Load default sample data"""
-        self.inventory_data = [
-        ]
-
-        self.suppliers_data = [
-        ]
+        self.inventory_data = []
+        self.suppliers_data = []
+        self.all_inventory_data = []
 
     def save_data(self):
         """Save data to JSON file"""
@@ -76,7 +74,7 @@ class InventoryDashboard(ctk.CTk):
         sidebar.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
         sidebar.grid_propagate(False)
 
-        # Logo section
+        # Logo
         logo_label = ctk.CTkLabel(
             sidebar,
             text="📦 HardTrack",
@@ -95,6 +93,7 @@ class InventoryDashboard(ctk.CTk):
             ("📦 Inventory", lambda: self.show_section("inventory")),
             ("📈 Reports", lambda: self.show_section("reports")),
             ("🏢 Suppliers", lambda: self.show_section("suppliers")),
+            ("🚪 Logout", self.logout)
         ]
 
         for text, command in nav_items:
@@ -110,7 +109,7 @@ class InventoryDashboard(ctk.CTk):
             )
             btn.pack(fill="x", padx=15, pady=8)
 
-        # Footer info
+        # Footer
         footer_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
         footer_frame.pack(side="bottom", pady=20, padx=20, fill="x")
 
@@ -122,6 +121,11 @@ class InventoryDashboard(ctk.CTk):
         )
         version_label.pack()
 
+    def logout(self):
+        """Fixed logout function"""
+        self.destroy()
+        import login  # Make sure login.py exists
+
     def create_main_content(self):
         """Create main content area"""
         main_frame = ctk.CTkFrame(self, fg_color="#0f0f0f")
@@ -132,7 +136,7 @@ class InventoryDashboard(ctk.CTk):
         # Header
         self.create_header(main_frame)
 
-        # Content area
+        # Content frame
         self.content_frame = ctk.CTkFrame(main_frame, fg_color="#0f0f0f")
         self.content_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=20)
         self.content_frame.grid_rowconfigure(0, weight=1)
@@ -199,7 +203,6 @@ class InventoryDashboard(ctk.CTk):
 
     def create_inventory_table(self, parent, data, columns, show_status=True, editable=False):
         """Create inventory table display with optional edit/delete buttons"""
-        # Table header
         header_frame = ctk.CTkFrame(parent, fg_color="#1a1a1a")
         header_frame.pack(fill="x", pady=(0, 10))
 
@@ -220,7 +223,6 @@ class InventoryDashboard(ctk.CTk):
             )
             label.pack(side="left", padx=10, pady=10)
 
-        # Scrollable content frame
         table_scroll = ctk.CTkScrollableFrame(
             parent,
             fg_color="#1a1a1a",
@@ -228,7 +230,6 @@ class InventoryDashboard(ctk.CTk):
         )
         table_scroll.pack(fill="both", expand=True)
 
-        # Table rows
         for item in data:
             row_frame = ctk.CTkFrame(table_scroll, fg_color="#252525", corner_radius=5)
             row_frame.pack(fill="x", padx=5, pady=5)
@@ -241,13 +242,16 @@ class InventoryDashboard(ctk.CTk):
                 "Inactive": "#ff5555"
             }
 
-            # Prepare values based on data type
             if "status" in item and show_status:
-                values = [item.get("id", ""), item.get("name", ""), item.get("category", ""),
-                          str(item.get("quantity", "")), f"${item['price']:.2f}", item["status"]]
+                values = [
+                    item.get("id", ""), item.get("name", ""), item.get("category", ""),
+                    str(item.get("quantity", "")), f"₱{item['price']:.2f}", item["status"]
+                ]
             else:
-                values = [item.get("id", ""), item.get("name", ""), item.get("contact", ""),
-                          item.get("email", ""), item["status"]]
+                values = [
+                    item.get("id", ""), item.get("name", ""), item.get("contact", ""),
+                    item.get("email", ""), item["status"]
+                ]
 
             for value, width, header in zip(values, widths, columns):
                 if header == "Status":
@@ -269,7 +273,6 @@ class InventoryDashboard(ctk.CTk):
                     )
                 label.pack(side="left", padx=10, pady=12)
 
-            # Add action buttons if editable
             if editable:
                 edit_btn = ctk.CTkButton(
                     row_frame,
@@ -297,11 +300,9 @@ class InventoryDashboard(ctk.CTk):
 
     def show_section(self, section):
         """Show different sections"""
-        # Clear previous content
         for widget in self.content_frame.winfo_children():
             widget.destroy()
 
-        # Update title
         self.title_label.configure(text=section.capitalize())
 
         if section == "dashboard":
@@ -315,10 +316,8 @@ class InventoryDashboard(ctk.CTk):
 
     def show_dashboard(self):
         """Display dashboard view"""
-        # Stats cards
         self.create_stats_cards(self.content_frame)
 
-        # Section label
         section_label = ctk.CTkLabel(
             self.content_frame,
             text="Inventory Overview",
@@ -327,13 +326,14 @@ class InventoryDashboard(ctk.CTk):
         )
         section_label.pack(anchor="w", pady=(10, 15))
 
-        # Inventory table
-        self.create_inventory_table(self.content_frame, self.inventory_data,
-                                    ["ID", "Product Name", "Category", "Quantity", "Price", "Status"])
+        self.create_inventory_table(
+            self.content_frame,
+            self.inventory_data,
+            ["ID", "Product Name", "Category", "Quantity", "Price", "Status"]
+        )
 
     def show_inventory(self):
         """Display inventory view"""
-        # Top controls frame
         controls_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         controls_frame.pack(fill="x", pady=(0, 15))
 
@@ -345,7 +345,6 @@ class InventoryDashboard(ctk.CTk):
         )
         section_label.pack(side="left", anchor="w")
 
-        # Add item button
         add_btn = ctk.CTkButton(
             controls_frame,
             text="➕ Add Product",
@@ -356,7 +355,6 @@ class InventoryDashboard(ctk.CTk):
         )
         add_btn.pack(side="right", padx=5)
 
-        # Search box
         search_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
         search_frame.pack(side="right", padx=10)
 
@@ -379,24 +377,50 @@ class InventoryDashboard(ctk.CTk):
         search_entry.pack(side="left", padx=5)
         self.search_var.trace("w", self.filter_inventory)
 
-        # Inventory table with edit/delete
-        self.create_inventory_table(self.content_frame, self.inventory_data,
-                                    ["ID", "Product Name", "Category", "Quantity", "Price", "Status"],
-                                    editable=True)
+        # container for table, so we can rebuild it when searching
+        self.inventory_table_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.inventory_table_frame.pack(fill="both", expand=True)
+
+        self.create_inventory_table(
+            self.inventory_table_frame,
+            self.inventory_data,
+            ["ID", "Product Name", "Category", "Quantity", "Price", "Status"],
+            editable=True
+        )
 
     def filter_inventory(self, *args):
-        """Filter inventory based on search"""
-        # This would require refreshing the table - for now, it's a placeholder
-        pass
+        """Filter inventory based on search box"""
+        query = self.search_var.get().strip().lower()
+
+        if not hasattr(self, "all_inventory_data"):
+            self.all_inventory_data = list(self.inventory_data)
+
+        if query == "":
+            filtered = self.all_inventory_data
+        else:
+            filtered = [
+                item for item in self.all_inventory_data
+                if query in str(item.get("id", "")).lower()
+                or query in str(item.get("name", "")).lower()
+            ]
+
+        # clear and rebuild table
+        for widget in self.inventory_table_frame.winfo_children():
+            widget.destroy()
+
+        self.create_inventory_table(
+            self.inventory_table_frame,
+            filtered,
+            ["ID", "Product Name", "Category", "Quantity", "Price", "Status"],
+            editable=True
+        )
 
     def add_item_dialog(self):
-        """Show dialog to add new product"""
         dialog = ctk.CTkToplevel(self)
         dialog.title("Add New Product")
         dialog.geometry("450x500")
         dialog.grab_set()
 
-        # Form fields
         fields = {
             "ID": ctk.StringVar(),
             "Product Name": ctk.StringVar(),
@@ -422,7 +446,6 @@ class InventoryDashboard(ctk.CTk):
 
             entry.pack(fill="x", padx=20, pady=5)
 
-        # Submit button
         def submit():
             try:
                 new_item = {
@@ -440,6 +463,7 @@ class InventoryDashboard(ctk.CTk):
 
                 self.update_status(new_item)
                 self.inventory_data.append(new_item)
+                self.all_inventory_data = list(self.inventory_data)
                 self.save_data()
                 messagebox.showinfo("Success", "Product added successfully!")
                 dialog.destroy()
@@ -458,7 +482,6 @@ class InventoryDashboard(ctk.CTk):
         submit_btn.pack(pady=20, padx=20, fill="x")
 
     def edit_item(self, item):
-        """Show dialog to edit product"""
         dialog = ctk.CTkToplevel(self)
         dialog.title("Edit Product")
         dialog.geometry("450x400")
@@ -496,6 +519,8 @@ class InventoryDashboard(ctk.CTk):
                 item["price"] = float(fields["Price"].get())
                 self.update_status(item)
                 self.save_data()
+                # refresh master copy
+                self.all_inventory_data = list(self.inventory_data)
                 messagebox.showinfo("Success", "Product updated successfully!")
                 dialog.destroy()
                 self.show_section("inventory")
@@ -513,16 +538,14 @@ class InventoryDashboard(ctk.CTk):
         submit_btn.pack(pady=20, padx=20, fill="x")
 
     def delete_item(self, item):
-        """Delete product with confirmation"""
         if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete {item['name']}?"):
             self.inventory_data.remove(item)
             self.save_data()
+            self.all_inventory_data = list(self.inventory_data)
             messagebox.showinfo("Success", "Product deleted successfully!")
             self.show_section("inventory")
 
     def show_reports(self):
-        """Display reports view"""
-        # Section label
         section_label = ctk.CTkLabel(
             self.content_frame,
             text="Reports",
@@ -531,7 +554,6 @@ class InventoryDashboard(ctk.CTk):
         )
         section_label.pack(anchor="w", pady=(0, 15))
 
-        # Report selector frame
         selector_frame = ctk.CTkFrame(self.content_frame, fg_color="#1a1a1a", corner_radius=10)
         selector_frame.pack(fill="x", pady=(0, 20))
 
@@ -552,7 +574,6 @@ class InventoryDashboard(ctk.CTk):
         self.report_menu.pack(side="left", padx=10, pady=15)
         self.report_menu.set("Inventory Status")
 
-        # Report output area
         output_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         output_frame.pack(fill="both", expand=True)
 
@@ -564,7 +585,6 @@ class InventoryDashboard(ctk.CTk):
         )
         output_label.pack(anchor="w", pady=(0, 10))
 
-        # Text area for report
         self.report_text = ctk.CTkTextbox(
             output_frame,
             font=("Arial", 11),
@@ -576,7 +596,6 @@ class InventoryDashboard(ctk.CTk):
         self.generate_report("Inventory Status")
 
     def generate_report(self, report_type):
-        """Generate different types of reports"""
         self.report_text.delete("1.0", "end")
 
         if report_type == "Inventory Status":
@@ -584,7 +603,7 @@ class InventoryDashboard(ctk.CTk):
             report += "=" * 50 + "\n\n"
             for item in self.inventory_data:
                 report += f"ID: {item['id']} | {item['name']}\n"
-                report += f"Category: {item['category']} | Qty: {item['quantity']} | Price: ${item['price']:.2f}\n"
+                report += f"Category: {item['category']} | Qty: {item['quantity']} | Price: ₱{item['price']:.2f}\n"
                 report += f"Status: {item['status']}\n\n"
 
         elif report_type == "Low Stock Alert":
@@ -595,7 +614,7 @@ class InventoryDashboard(ctk.CTk):
                 for item in low_stock:
                     report += f"⚠️  {item['name']} (ID: {item['id']})\n"
                     report += f"Current Quantity: {item['quantity']}\n"
-                    report += f"Price: ${item['price']:.2f}\n\n"
+                    report += f"Price: ₱{item['price']:.2f}\n\n"
             else:
                 report += "No low stock items found!"
 
@@ -606,7 +625,7 @@ class InventoryDashboard(ctk.CTk):
             if out_of_stock:
                 for item in out_of_stock:
                     report += f"❌ {item['name']} (ID: {item['id']})\n"
-                    report += f"Price: ${item['price']:.2f}\n"
+                    report += f"Price: ₱{item['price']:.2f}\n"
                     report += f"Category: {item['category']}\n\n"
             else:
                 report += "No out of stock items!"
@@ -617,7 +636,7 @@ class InventoryDashboard(ctk.CTk):
             report += "=" * 50 + "\n\n"
             report += f"Total Products: {len(self.inventory_data)}\n"
             report += f"Total Units: {sum(item['quantity'] for item in self.inventory_data)}\n"
-            report += f"Total Inventory Value: ${total_value:,.2f}\n\n"
+            report += f"Total Inventory Value: ₱{total_value:,.2f}\n\n"
             report += "BREAKDOWN BY CATEGORY:\n"
             categories = {}
             for item in self.inventory_data:
@@ -626,13 +645,11 @@ class InventoryDashboard(ctk.CTk):
                     categories[cat] = 0
                 categories[cat] += item['quantity'] * item['price']
             for cat, value in categories.items():
-                report += f"{cat}: ${value:,.2f}\n"
+                report += f"{cat}: ₱{value:,.2f}\n"
 
         self.report_text.insert("1.0", report)
 
     def show_suppliers(self):
-        """Display suppliers view"""
-        # Top controls frame
         controls_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         controls_frame.pack(fill="x", pady=(0, 15))
 
@@ -644,7 +661,6 @@ class InventoryDashboard(ctk.CTk):
         )
         section_label.pack(side="left", anchor="w")
 
-        # Add supplier button
         add_btn = ctk.CTkButton(
             controls_frame,
             text="➕ Add Supplier",
@@ -655,13 +671,15 @@ class InventoryDashboard(ctk.CTk):
         )
         add_btn.pack(side="right", padx=5)
 
-        # Suppliers table with edit/delete
-        self.create_inventory_table(self.content_frame, self.suppliers_data,
-                                    ["Supplier ID", "Name", "Contact", "Email", "Status"],
-                                    show_status=False, editable=True)
+        self.create_inventory_table(
+            self.content_frame,
+            self.suppliers_data,
+            ["Supplier ID", "Name", "Contact", "Email", "Status"],
+            show_status=False,
+            editable=True
+        )
 
     def add_supplier_dialog(self):
-        """Show dialog to add new supplier"""
         dialog = ctk.CTkToplevel(self)
         dialog.title("Add New Supplier")
         dialog.geometry("450x500")
@@ -678,11 +696,14 @@ class InventoryDashboard(ctk.CTk):
             label = ctk.CTkLabel(dialog, text=field, font=("Arial", 12), text_color="#ffffff")
             label.pack(pady=(15 if i == 0 else 10, 5), padx=20, anchor="w")
 
-            entry = ctk.CTkEntry(dialog, textvariable=var, placeholder_text=f"Enter {field.lower()}",
-                                font=("Arial", 11))
+            entry = ctk.CTkEntry(
+                dialog,
+                textvariable=var,
+                placeholder_text=f"Enter {field.lower()}",
+                font=("Arial", 11)
+            )
             entry.pack(fill="x", padx=20, pady=5)
 
-        # Status
         label = ctk.CTkLabel(dialog, text="Status", font=("Arial", 12), text_color="#ffffff")
         label.pack(pady=10, padx=20, anchor="w")
 
@@ -723,6 +744,7 @@ class InventoryDashboard(ctk.CTk):
             font=("Arial", 12)
         )
         submit_btn.pack(pady=20, padx=20, fill="x")
+
 
 if __name__ == "__main__":
     app = InventoryDashboard()
