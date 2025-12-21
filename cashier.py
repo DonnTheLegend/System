@@ -7,73 +7,87 @@ import tkinter.messagebox as messagebox
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-
 class CashierApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("HardTrack - Cashier Panel")
-        self.geometry("1200x810")
+        self.protocol("WM_DELETE_WINDOW", self.logout)
 
-        # Data files
+        self.after_ids = []
+
+        self.title("HardTrack - Cashier Panel")
+        self.geometry("1920x1080")
+
         self.inventory_file = "inventory_data.json"
         self.transaction_file = "transactions.json"
 
         self.cart = []
         self.inventory_data = []
 
-        # Load inventory data
         self.load_inventory()
 
-        # Configure grid
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # Create UI
         self.create_ui()
 
+    def logout(self):
+        # Recursively cancel after() calls from buttons and frames
+        def cancel_callbacks(widget):
+            try:
+                widget.after_cancel(widget)
+            except:
+                pass
+            for child in widget.winfo_children():
+                cancel_callbacks(child)
+
+        try:
+            cancel_callbacks(self)
+        except:
+            pass
+
+        try:
+            self.quit()
+        except:
+            pass
+
+        try:
+            self.destroy()
+        except:
+            pass
+
     def load_inventory(self):
-        """Load inventory from shared JSON file"""
         if os.path.exists(self.inventory_file):
             try:
                 with open(self.inventory_file, 'r') as f:
                     data = json.load(f)
-                    self.inventory_data = data.get("inventory", [])
+                self.inventory_data = data.get("inventory", [])
             except:
                 self.load_default_inventory()
         else:
             self.load_default_inventory()
 
     def load_default_inventory(self):
-        """Load default inventory"""
-        self.inventory_data = [
-        ]
+        self.inventory_data = []
 
     def create_ui(self):
-        """Create main UI"""
         main_frame = ctk.CTkFrame(self, fg_color="#0f0f0f")
         main_frame.grid(row=0, column=0, sticky="nsew")
         main_frame.grid_rowconfigure(1, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
 
-        # Header
         self.create_header(main_frame)
 
-        # Content
         content_frame = ctk.CTkFrame(main_frame, fg_color="#0f0f0f")
         content_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=20)
         content_frame.grid_columnconfigure(0, weight=1)
         content_frame.grid_columnconfigure(1, weight=0)
         content_frame.grid_rowconfigure(0, weight=1)
 
-        # Left - Products
         self.create_products_section(content_frame)
-
-        # Right - Cart
         self.create_cart_section(content_frame)
 
     def create_header(self, parent):
-        """Create header"""
         header = ctk.CTkFrame(parent, fg_color="#1a1a1a", height=80)
         header.grid(row=0, column=0, sticky="ew", padx=20, pady=20)
         header.grid_propagate(False)
@@ -94,14 +108,22 @@ class CashierApp(ctk.CTk):
         )
         time_label.pack(side="right", padx=20, pady=20)
 
+        logout_btn = ctk.CTkButton(
+            header,
+            text="🚪 Logout",
+            font=("Arial", 12, "bold"),
+            fg_color="#ff5555",
+            hover_color="#cc4444",
+            command=self.logout
+        )
+        logout_btn.pack(side="right", padx=20)
+
     def create_products_section(self, parent):
-        """Create products section"""
         products_frame = ctk.CTkFrame(parent, fg_color="transparent")
         products_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 20))
         products_frame.grid_rowconfigure(2, weight=1)
         products_frame.grid_columnconfigure(0, weight=1)
 
-        # Title
         title = ctk.CTkLabel(
             products_frame,
             text="Available Products",
@@ -110,7 +132,6 @@ class CashierApp(ctk.CTk):
         )
         title.grid(row=0, column=0, sticky="w", pady=(0, 10))
 
-        # Search
         search_frame = ctk.CTkFrame(products_frame, fg_color="transparent")
         search_frame.grid(row=1, column=0, sticky="ew", pady=(0, 10))
 
@@ -128,12 +149,12 @@ class CashierApp(ctk.CTk):
             textvariable=self.search_var,
             placeholder_text="Product ID or Name",
             font=("Arial", 11),
-            width=250
+            width=320
         )
-        search_entry.pack(side="left", fill="x", expand=True)
+        search_entry.pack(side="left", padx=5)
+
         self.search_var.trace("w", lambda *args: self.update_products_display())
 
-        # Products scroll
         self.products_scroll = ctk.CTkScrollableFrame(
             products_frame,
             fg_color="#1a1a1a",
@@ -145,35 +166,26 @@ class CashierApp(ctk.CTk):
         self.update_products_display()
 
     def update_products_display(self):
-        """Update products display based on search"""
-        # Clear
         for widget in self.products_scroll.winfo_children():
             widget.destroy()
 
         search_text = self.search_var.get().lower()
 
         for item in self.inventory_data:
-            # Filter by search
             if search_text and search_text not in item['id'].lower() and search_text not in item['name'].lower():
                 continue
-
-            # Skip out of stock
-            if item['status'] == 'Out of Stock':
+            if item.get('status') == 'Out of Stock':
                 continue
-
             self.create_product_card(self.products_scroll, item)
 
     def create_product_card(self, parent, item):
-        """Create product card"""
         card = ctk.CTkFrame(parent, fg_color="#252525", corner_radius=8)
         card.pack(fill="x", padx=5, pady=5)
         card.grid_columnconfigure(0, weight=1)
 
-        # Info
         info_frame = ctk.CTkFrame(card, fg_color="transparent")
         info_frame.pack(side="left", fill="both", expand=True, padx=15, pady=12)
 
-        # Name and ID
         name_label = ctk.CTkLabel(
             info_frame,
             text=f"🛍️ {item['name']} ({item['id']})",
@@ -182,16 +194,14 @@ class CashierApp(ctk.CTk):
         )
         name_label.pack(anchor="w", pady=(0, 5))
 
-        # Category and quantity
         details_label = ctk.CTkLabel(
             info_frame,
-            text=f"{item['category']} | Available: {item['quantity']} | Price: ${item['price']:.2f}",
+            text=f"{item['category']} | Available: {item['quantity']} | Price: ₱{item['price']:.2f}",
             font=("Arial", 11),
             text_color="#808080"
         )
         details_label.pack(anchor="w")
 
-        # Add button
         add_btn = ctk.CTkButton(
             card,
             text="Add",
@@ -205,13 +215,11 @@ class CashierApp(ctk.CTk):
         add_btn.pack(side="right", padx=15, pady=12)
 
     def create_cart_section(self, parent):
-        """Create cart section"""
         cart_frame = ctk.CTkFrame(parent, fg_color="#1a1a1a", corner_radius=12, width=300)
         cart_frame.grid(row=0, column=1, sticky="nsew")
         cart_frame.grid_propagate(False)
         cart_frame.grid_rowconfigure(2, weight=1)
 
-        # Title
         title = ctk.CTkLabel(
             cart_frame,
             text="🛒 Shopping Cart",
@@ -220,7 +228,6 @@ class CashierApp(ctk.CTk):
         )
         title.pack(pady=15, padx=15, anchor="w")
 
-        # Item count
         self.items_label = ctk.CTkLabel(
             cart_frame,
             text="Items: 0",
@@ -229,7 +236,6 @@ class CashierApp(ctk.CTk):
         )
         self.items_label.pack(padx=15, anchor="w", pady=(0, 10))
 
-        # Cart items scroll
         self.cart_scroll = ctk.CTkScrollableFrame(
             cart_frame,
             fg_color="#252525",
@@ -237,15 +243,12 @@ class CashierApp(ctk.CTk):
         )
         self.cart_scroll.pack(fill="both", expand=True, padx=15, pady=(0, 15))
 
-        # Divider
         divider = ctk.CTkFrame(cart_frame, height=2, fg_color="#404040")
         divider.pack(fill="x", padx=15, pady=(0, 10))
 
-        # Totals
         totals_frame = ctk.CTkFrame(cart_frame, fg_color="transparent")
         totals_frame.pack(fill="x", padx=15, pady=10)
 
-        # Subtotal
         subtotal_lbl = ctk.CTkLabel(
             totals_frame,
             text="Subtotal:",
@@ -253,15 +256,15 @@ class CashierApp(ctk.CTk):
             text_color="#808080"
         )
         subtotal_lbl.pack(anchor="w")
+
         self.subtotal_val = ctk.CTkLabel(
             totals_frame,
-            text="$0.00",
+            text="₱0.00",
             font=("Arial", 12, "bold"),
             text_color="#ffffff"
         )
         self.subtotal_val.pack(anchor="e", pady=(0, 8))
 
-        # Tax
         tax_lbl = ctk.CTkLabel(
             totals_frame,
             text="Tax (12%):",
@@ -269,19 +272,18 @@ class CashierApp(ctk.CTk):
             text_color="#808080"
         )
         tax_lbl.pack(anchor="w")
+
         self.tax_val = ctk.CTkLabel(
             totals_frame,
-            text="$0.00",
+            text="₱0.00",
             font=("Arial", 12, "bold"),
             text_color="#ffffff"
         )
         self.tax_val.pack(anchor="e", pady=(0, 10))
 
-        # Total divider
         divider2 = ctk.CTkFrame(totals_frame, height=1, fg_color="#404040")
         divider2.pack(fill="x", pady=(0, 10))
 
-        # Grand Total
         total_lbl = ctk.CTkLabel(
             totals_frame,
             text="TOTAL:",
@@ -289,15 +291,15 @@ class CashierApp(ctk.CTk):
             text_color="#00a8ff"
         )
         total_lbl.pack(anchor="w")
+
         self.total_val = ctk.CTkLabel(
             totals_frame,
-            text="$0.00",
+            text="₱0.00",
             font=("Arial", 15, "bold"),
             text_color="#00cc88"
         )
         self.total_val.pack(anchor="e")
 
-        # Buttons
         button_frame = ctk.CTkFrame(cart_frame, fg_color="transparent")
         button_frame.pack(fill="x", padx=15, pady=15)
 
@@ -322,8 +324,6 @@ class CashierApp(ctk.CTk):
         checkout_btn.pack(fill="x")
 
     def add_to_cart(self, item):
-        """Add item to cart"""
-        # Check if already in cart
         for cart_item in self.cart:
             if cart_item['id'] == item['id']:
                 if cart_item['qty'] < item['quantity']:
@@ -333,7 +333,6 @@ class CashierApp(ctk.CTk):
                 self.update_cart_display()
                 return
 
-        # Add new item
         self.cart.append({
             'id': item['id'],
             'name': item['name'],
@@ -341,12 +340,9 @@ class CashierApp(ctk.CTk):
             'qty': 1,
             'max_qty': item['quantity']
         })
-
         self.update_cart_display()
 
     def update_cart_display(self):
-        """Update cart display"""
-        # Clear
         for widget in self.cart_scroll.winfo_children():
             widget.destroy()
 
@@ -362,26 +358,22 @@ class CashierApp(ctk.CTk):
             for cart_item in self.cart:
                 self.create_cart_item(self.cart_scroll, cart_item)
 
-        # Update totals
         self.update_totals()
 
     def create_cart_item(self, parent, cart_item):
-        """Create cart item"""
         item_frame = ctk.CTkFrame(parent, fg_color="#1a1a1a", corner_radius=6)
         item_frame.pack(fill="x", padx=5, pady=5)
         item_frame.grid_columnconfigure(0, weight=1)
 
-        # Info
         info_label = ctk.CTkLabel(
             item_frame,
-            text=f"{cart_item['name']}\n${cart_item['price']:.2f} × {cart_item['qty']} = ${cart_item['price'] * cart_item['qty']:.2f}",
+            text=f"{cart_item['name']}\n₱{cart_item['price']:.2f} × {cart_item['qty']} = ₱{cart_item['price'] * cart_item['qty']:.2f}",
             font=("Arial", 10),
             text_color="#ffffff",
             justify="left"
         )
-        info_label.pack(anchor="w", padx=10, pady=(8, 5), side="left", expand=True)
+        info_label.pack(anchor="w", padx=10, pady=(8, 5))
 
-        # Qty controls
         qty_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
         qty_frame.pack(side="right", padx=8, pady=8)
 
@@ -431,7 +423,6 @@ class CashierApp(ctk.CTk):
         del_btn.pack(side="left", padx=2)
 
     def increase_qty(self, cart_item):
-        """Increase quantity"""
         if cart_item['qty'] < cart_item['max_qty']:
             cart_item['qty'] += 1
             self.update_cart_display()
@@ -439,7 +430,6 @@ class CashierApp(ctk.CTk):
             messagebox.showwarning("Stock Limit", f"Only {cart_item['max_qty']} available!")
 
     def decrease_qty(self, cart_item):
-        """Decrease quantity"""
         if cart_item['qty'] > 1:
             cart_item['qty'] -= 1
         else:
@@ -447,41 +437,35 @@ class CashierApp(ctk.CTk):
         self.update_cart_display()
 
     def remove_from_cart(self, cart_item):
-        """Remove from cart"""
         self.cart = [item for item in self.cart if item['id'] != cart_item['id']]
         self.update_cart_display()
 
     def clear_cart(self):
-        """Clear cart"""
         if messagebox.askyesno("Clear Cart", "Remove all items from cart?"):
             self.cart = []
             self.update_cart_display()
 
     def update_totals(self):
-        """Update totals"""
         subtotal = sum(item['price'] * item['qty'] for item in self.cart)
         tax = subtotal * 0.12
         total = subtotal + tax
         total_items = sum(item['qty'] for item in self.cart)
 
         self.items_label.configure(text=f"Items: {total_items}")
-        self.subtotal_val.configure(text=f"${subtotal:.2f}")
-        self.tax_val.configure(text=f"${tax:.2f}")
-        self.total_val.configure(text=f"${total:.2f}")
+        self.subtotal_val.configure(text=f"₱{subtotal:.2f}")
+        self.tax_val.configure(text=f"₱{tax:.2f}")
+        self.total_val.configure(text=f"₱{total:.2f}")
 
     def checkout(self):
-        """Process checkout"""
         if not self.cart:
             messagebox.showwarning("Empty Cart", "Add items to cart first!")
             return
 
-        # Checkout window
         checkout_win = ctk.CTkToplevel(self)
         checkout_win.title("Checkout")
         checkout_win.geometry("450x350")
         checkout_win.grab_set()
 
-        # Title
         title = ctk.CTkLabel(
             checkout_win,
             text="Payment Method",
@@ -490,10 +474,9 @@ class CashierApp(ctk.CTk):
         )
         title.pack(pady=20)
 
-        # Payment method
         payment_var = ctk.StringVar(value="Cash")
-
         methods = ["💵 Cash", "💳 Card", "📱 Online Banking"]
+
         for method in methods:
             btn = ctk.CTkRadioButton(
                 checkout_win,
@@ -504,23 +487,20 @@ class CashierApp(ctk.CTk):
             )
             btn.pack(pady=10, anchor="w", padx=80)
 
-        # Divider
         divider = ctk.CTkFrame(checkout_win, height=2, fg_color="#404040")
         divider.pack(fill="x", padx=50, pady=20)
 
-        # Amount
         total = sum(item['price'] * item['qty'] for item in self.cart) * 1.12
+
         amount_label = ctk.CTkLabel(
             checkout_win,
-            text=f"Total Amount: ${total:.2f}",
+            text=f"Total Amount: ₱{total:.2f}",
             font=("Arial", 15, "bold"),
             text_color="#00cc88"
         )
         amount_label.pack(pady=10)
 
-        # Buttons
         def confirm():
-            # Save transaction
             transaction = {
                 'id': datetime.now().strftime('%Y%m%d%H%M%S'),
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -533,21 +513,21 @@ class CashierApp(ctk.CTk):
 
             self.save_transaction(transaction)
 
-            # Update inventory
             for cart_item in self.cart:
                 for inv_item in self.inventory_data:
                     if inv_item['id'] == cart_item['id']:
                         inv_item['quantity'] -= cart_item['qty']
 
-            # Save inventory
             data = {"inventory": self.inventory_data, "suppliers": []}
             with open(self.inventory_file, 'w') as f:
                 json.dump(data, f, indent=2)
 
-            messagebox.showinfo("Payment Successful",
-                                f"Transaction ID: {transaction['id']}\n"
-                                f"Total: ${total:.2f}\n"
-                                f"Method: {payment_var.get()}")
+            messagebox.showinfo(
+                "Payment Successful",
+                f"Transaction ID: {transaction['id']}\n"
+                f"Total: ₱{total:.2f}\n"
+                f"Method: {payment_var.get()}"
+            )
 
             self.cart = []
             self.update_cart_display()
@@ -574,7 +554,6 @@ class CashierApp(ctk.CTk):
         cancel_btn.pack(padx=50, fill="x")
 
     def save_transaction(self, transaction):
-        """Save transaction"""
         transactions = []
         if os.path.exists(self.transaction_file):
             try:
@@ -584,7 +563,6 @@ class CashierApp(ctk.CTk):
                 pass
 
         transactions.append(transaction)
-
         with open(self.transaction_file, 'w') as f:
             json.dump(transactions, f, indent=2)
 
