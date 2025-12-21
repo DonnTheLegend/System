@@ -1,0 +1,8 @@
+{
+    "admin": {
+        "password": "admin12",
+        "role": "Admin",
+        "question": "What is your mother's maiden name?",
+        "answer": "bocalbos"
+    }
+}
