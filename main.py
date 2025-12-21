@@ -5,7 +5,6 @@ from datetime import datetime
 import json
 import os
 
-
 # Set appearance mode
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -60,7 +59,11 @@ class InventoryDashboard(ctk.CTk):
 
     def update_status(self, item):
         """Auto-update status based on quantity"""
-        quantity = item["quantity"]
+        quantity = item.get("quantity", 0)
+        try:
+            quantity = int(quantity)
+        except Exception:
+            quantity = 0
         if quantity == 0:
             item["status"] = "Out of Stock"
         elif quantity <= 10:
@@ -122,9 +125,8 @@ class InventoryDashboard(ctk.CTk):
         version_label.pack()
 
     def logout(self):
-        """Fixed logout function"""
+        self.quit()
         self.destroy()
-        import login  # Make sure login.py exists
 
     def create_main_content(self):
         """Create main content area"""
@@ -176,9 +178,9 @@ class InventoryDashboard(ctk.CTk):
 
         stats = [
             ("Total Products", str(len(self.inventory_data)), "#00a8ff"),
-            ("In Stock", str(sum(1 for item in self.inventory_data if item['status'] == 'In Stock')), "#00cc88"),
-            ("Low Stock", str(sum(1 for item in self.inventory_data if item['status'] == 'Low Stock')), "#ffaa00"),
-            ("Out of Stock", str(sum(1 for item in self.inventory_data if item['status'] == 'Out of Stock')), "#ff5555"),
+            ("In Stock", str(sum(1 for item in self.inventory_data if item.get('status') == 'In Stock')), "#00cc88"),
+            ("Low Stock", str(sum(1 for item in self.inventory_data if item.get('status') == 'Low Stock')), "#ffaa00"),
+            ("Out of Stock", str(sum(1 for item in self.inventory_data if item.get('status') == 'Out of Stock')), "#ff5555"),
         ]
 
         for i, (label, value, color) in enumerate(stats):
@@ -207,9 +209,9 @@ class InventoryDashboard(ctk.CTk):
         header_frame.pack(fill="x", pady=(0, 10))
 
         if show_status:
-            widths = [70, 150, 130, 80, 100, 100, 100]
+            widths = [70, 150, 130, 80, 100, 100, 100]  # last is for Actions if editable
         else:
-            widths = [90, 150, 120, 120, 120, 100]
+            widths = [90, 150, 120, 120, 120, 100]  # last is for Actions if editable
 
         headers_to_show = columns + (["Actions"] if editable else [])
 
@@ -230,6 +232,11 @@ class InventoryDashboard(ctk.CTk):
         )
         table_scroll.pack(fill="both", expand=True)
 
+        # Determine if this table is for suppliers (used to call supplier handlers)
+        editing_suppliers = False
+        if len(columns) > 0 and str(columns[0]).lower().startswith("supplier"):
+            editing_suppliers = True
+
         for item in data:
             row_frame = ctk.CTkFrame(table_scroll, fg_color="#252525", corner_radius=5)
             row_frame.pack(fill="x", padx=5, pady=5)
@@ -242,17 +249,33 @@ class InventoryDashboard(ctk.CTk):
                 "Inactive": "#ff5555"
             }
 
+            # Build the values list depending on whether it's inventory or supplier
             if "status" in item and show_status:
+                # Inventory item expected keys: id, name, category, quantity, price, status
+                price_display = ""
+                try:
+                    price_display = f"₱{float(item.get('price', 0)):.2f}"
+                except Exception:
+                    price_display = str(item.get('price', ''))
                 values = [
-                    item.get("id", ""), item.get("name", ""), item.get("category", ""),
-                    str(item.get("quantity", "")), f"₱{item['price']:.2f}", item["status"]
+                    item.get("id", ""),
+                    item.get("name", ""),
+                    item.get("category", ""),
+                    str(item.get("quantity", "")),
+                    price_display,
+                    item.get("status", "")
                 ]
             else:
+                # Supplier expected keys: id, name, contact, email, status
                 values = [
-                    item.get("id", ""), item.get("name", ""), item.get("contact", ""),
-                    item.get("email", ""), item["status"]
+                    item.get("id", ""),
+                    item.get("name", ""),
+                    item.get("contact", ""),
+                    item.get("email", ""),
+                    item.get("status", "")
                 ]
 
+            # zip values with widths and columns (columns is shorter than headers_to_show when editable)
             for value, width, header in zip(values, widths, columns):
                 if header == "Status":
                     color = status_color_map.get(value, "#ffffff")
@@ -274,6 +297,14 @@ class InventoryDashboard(ctk.CTk):
                 label.pack(side="left", padx=10, pady=12)
 
             if editable:
+                # choose appropriate handlers based on table type
+                if editing_suppliers:
+                    edit_cmd = (lambda i=item: self.edit_supplier(i))
+                    del_cmd = (lambda i=item: self.delete_supplier(i))
+                else:
+                    edit_cmd = (lambda i=item: self.edit_item(i))
+                    del_cmd = (lambda i=item: self.delete_item(i))
+
                 edit_btn = ctk.CTkButton(
                     row_frame,
                     text="✏️ Edit",
@@ -282,7 +313,7 @@ class InventoryDashboard(ctk.CTk):
                     height=25,
                     fg_color="#00a8ff",
                     hover_color="#0088cc",
-                    command=lambda i=item: self.edit_item(i)
+                    command=edit_cmd
                 )
                 edit_btn.pack(side="left", padx=5, pady=12)
 
@@ -294,7 +325,7 @@ class InventoryDashboard(ctk.CTk):
                     height=25,
                     fg_color="#ff5555",
                     hover_color="#cc4444",
-                    command=lambda i=item: self.delete_item(i)
+                    command=del_cmd
                 )
                 del_btn.pack(side="left", padx=5, pady=12)
 
@@ -303,7 +334,9 @@ class InventoryDashboard(ctk.CTk):
         for widget in self.content_frame.winfo_children():
             widget.destroy()
 
-        self.title_label.configure(text=section.capitalize())
+        # nice title case
+        title_text = section.capitalize() if isinstance(section, str) else str(section)
+        self.title_label.configure(text=title_text)
 
         if section == "dashboard":
             self.show_dashboard()
@@ -488,11 +521,11 @@ class InventoryDashboard(ctk.CTk):
         dialog.grab_set()
 
         fields = {
-            "ID": ctk.StringVar(value=item["id"]),
-            "Product Name": ctk.StringVar(value=item["name"]),
-            "Category": ctk.StringVar(value=item["category"]),
-            "Quantity": ctk.StringVar(value=str(item["quantity"])),
-            "Price": ctk.StringVar(value=str(item["price"])),
+            "ID": ctk.StringVar(value=item.get("id", "")),
+            "Product Name": ctk.StringVar(value=item.get("name", "")),
+            "Category": ctk.StringVar(value=item.get("category", "")),
+            "Quantity": ctk.StringVar(value=str(item.get("quantity", ""))),
+            "Price": ctk.StringVar(value=str(item.get("price", ""))),
         }
 
         for i, (field, var) in enumerate(fields.items()):
@@ -513,6 +546,7 @@ class InventoryDashboard(ctk.CTk):
 
         def submit():
             try:
+                # ID is not editable (kept for reference), but you can allow editing if needed
                 item["name"] = fields["Product Name"].get()
                 item["category"] = fields["Category"].get()
                 item["quantity"] = int(fields["Quantity"].get())
@@ -538,8 +572,12 @@ class InventoryDashboard(ctk.CTk):
         submit_btn.pack(pady=20, padx=20, fill="x")
 
     def delete_item(self, item):
-        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete {item['name']}?"):
-            self.inventory_data.remove(item)
+        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete {item.get('name','this item')}?"):
+            try:
+                self.inventory_data.remove(item)
+            except ValueError:
+                # item not present
+                pass
             self.save_data()
             self.all_inventory_data = list(self.inventory_data)
             messagebox.showinfo("Success", "Product deleted successfully!")
@@ -587,7 +625,7 @@ class InventoryDashboard(ctk.CTk):
 
         self.report_text = ctk.CTkTextbox(
             output_frame,
-            font=("Arial", 11),
+            font=("Arial", 18),
             fg_color="#1a1a1a",
             text_color="#ffffff",
             height=300
@@ -599,53 +637,76 @@ class InventoryDashboard(ctk.CTk):
         self.report_text.delete("1.0", "end")
 
         if report_type == "Inventory Status":
-            report = "INVENTORY STATUS REPORT\n"
-            report += "=" * 50 + "\n\n"
-            for item in self.inventory_data:
-                report += f"ID: {item['id']} | {item['name']}\n"
-                report += f"Category: {item['category']} | Qty: {item['quantity']} | Price: ₱{item['price']:.2f}\n"
-                report += f"Status: {item['status']}\n\n"
+            report = "INVENTORY STATUS REPORT\n\n"
+            for i, item in enumerate(self.inventory_data, start=1):
+                report += f"═══════════════ ITEM #{i} ═══════════════\n"
+                report += f"Name       : {item.get('name','')}\n"
+                report += f"Category   : {item.get('category','')}\n"
+                report += f"Quantity   : {item.get('quantity','')}\n"
+                try:
+                    price_str = f"₱{float(item.get('price',0)):.2f}"
+                except Exception:
+                    price_str = str(item.get('price',''))
+                report += f"Price      : {price_str}\n"
+                report += f"Status     : {item.get('status','')}\n"
+                report += "────────────────────────────────────────────\n\n"
 
         elif report_type == "Low Stock Alert":
-            low_stock = [item for item in self.inventory_data if item['status'] == "Low Stock"]
+            low_stock = [item for item in self.inventory_data if item.get('status') == "Low Stock"]
             report = "LOW STOCK ALERT\n"
             report += "=" * 50 + "\n\n"
             if low_stock:
                 for item in low_stock:
-                    report += f"⚠️  {item['name']} (ID: {item['id']})\n"
-                    report += f"Current Quantity: {item['quantity']}\n"
-                    report += f"Price: ₱{item['price']:.2f}\n\n"
+                    report += f"⚠️  {item.get('name','')} (ID: {item.get('id','')})\n"
+                    report += f"Current Quantity: {item.get('quantity','')}\n"
+                    try:
+                        report += f"Price: ₱{float(item.get('price',0)):.2f}\n\n"
+                    except Exception:
+                        report += f"Price: {item.get('price','')}\n\n"
             else:
                 report += "No low stock items found!"
 
         elif report_type == "Out of Stock Items":
-            out_of_stock = [item for item in self.inventory_data if item['status'] == "Out of Stock"]
+            out_of_stock = [item for item in self.inventory_data if item.get('status') == "Out of Stock"]
             report = "OUT OF STOCK ITEMS\n"
             report += "=" * 50 + "\n\n"
             if out_of_stock:
                 for item in out_of_stock:
-                    report += f"❌ {item['name']} (ID: {item['id']})\n"
-                    report += f"Price: ₱{item['price']:.2f}\n"
-                    report += f"Category: {item['category']}\n\n"
+                    report += f"❌ {item.get('name','')} (ID: {item.get('id','')})\n"
+                    try:
+                        report += f"Price: ₱{float(item.get('price',0)):.2f}\n"
+                    except Exception:
+                        report += f"Price: {item.get('price','')}\n"
+                    report += f"Category: {item.get('category','')}\n\n"
             else:
                 report += "No out of stock items!"
 
         elif report_type == "Total Inventory Value":
-            total_value = sum(item['quantity'] * item['price'] for item in self.inventory_data)
+            total_value = sum((item.get('quantity', 0) or 0) * (item.get('price', 0) or 0) for item in self.inventory_data)
             report = "TOTAL INVENTORY VALUE REPORT\n"
             report += "=" * 50 + "\n\n"
             report += f"Total Products: {len(self.inventory_data)}\n"
-            report += f"Total Units: {sum(item['quantity'] for item in self.inventory_data)}\n"
-            report += f"Total Inventory Value: ₱{total_value:,.2f}\n\n"
+            report += f"Total Units: {sum((item.get('quantity', 0) or 0) for item in self.inventory_data)}\n"
+            try:
+                report += f"Total Inventory Value: ₱{float(total_value):,.2f}\n\n"
+            except Exception:
+                report += f"Total Inventory Value: {total_value}\n\n"
             report += "BREAKDOWN BY CATEGORY:\n"
             categories = {}
             for item in self.inventory_data:
-                cat = item['category']
-                if cat not in categories:
-                    categories[cat] = 0
-                categories[cat] += item['quantity'] * item['price']
+                cat = item.get('category', 'Uncategorized')
+                categories.setdefault(cat, 0)
+                qty = item.get('quantity', 0) or 0
+                price = item.get('price', 0) or 0
+                try:
+                    categories[cat] += float(qty) * float(price)
+                except Exception:
+                    pass
             for cat, value in categories.items():
-                report += f"{cat}: ₱{value:,.2f}\n"
+                try:
+                    report += f"{cat}: ₱{float(value):,.2f}\n"
+                except Exception:
+                    report += f"{cat}: {value}\n"
 
         self.report_text.insert("1.0", report)
 
@@ -671,6 +732,7 @@ class InventoryDashboard(ctk.CTk):
         )
         add_btn.pack(side="right", padx=5)
 
+        # supplier table
         self.create_inventory_table(
             self.content_frame,
             self.suppliers_data,
@@ -682,7 +744,7 @@ class InventoryDashboard(ctk.CTk):
     def add_supplier_dialog(self):
         dialog = ctk.CTkToplevel(self)
         dialog.title("Add New Supplier")
-        dialog.geometry("450x500")
+        dialog.geometry("450x450")
         dialog.grab_set()
 
         fields = {
@@ -690,31 +752,28 @@ class InventoryDashboard(ctk.CTk):
             "Name": ctk.StringVar(),
             "Contact": ctk.StringVar(),
             "Email": ctk.StringVar(),
+            "Status": ctk.StringVar(value="Active")
         }
 
         for i, (field, var) in enumerate(fields.items()):
             label = ctk.CTkLabel(dialog, text=field, font=("Arial", 12), text_color="#ffffff")
             label.pack(pady=(15 if i == 0 else 10, 5), padx=20, anchor="w")
 
-            entry = ctk.CTkEntry(
-                dialog,
-                textvariable=var,
-                placeholder_text=f"Enter {field.lower()}",
-                font=("Arial", 11)
-            )
+            if field == "Status":
+                entry = ctk.CTkOptionMenu(
+                    dialog,
+                    values=["Active", "Inactive"],
+                    variable=var,
+                    font=("Arial", 11)
+                )
+            else:
+                entry = ctk.CTkEntry(
+                    dialog,
+                    textvariable=var,
+                    placeholder_text=f"Enter {field.lower()}",
+                    font=("Arial", 11)
+                )
             entry.pack(fill="x", padx=20, pady=5)
-
-        label = ctk.CTkLabel(dialog, text="Status", font=("Arial", 12), text_color="#ffffff")
-        label.pack(pady=10, padx=20, anchor="w")
-
-        status_var = ctk.StringVar(value="Active")
-        status_menu = ctk.CTkOptionMenu(
-            dialog,
-            values=["Active", "Inactive"],
-            variable=status_var,
-            font=("Arial", 11)
-        )
-        status_menu.pack(fill="x", padx=20, pady=5)
 
         def submit():
             new_supplier = {
@@ -722,7 +781,7 @@ class InventoryDashboard(ctk.CTk):
                 "name": fields["Name"].get(),
                 "contact": fields["Contact"].get(),
                 "email": fields["Email"].get(),
-                "status": status_var.get()
+                "status": fields["Status"].get()
             }
 
             if not new_supplier["id"] or not new_supplier["name"]:
@@ -744,6 +803,66 @@ class InventoryDashboard(ctk.CTk):
             font=("Arial", 12)
         )
         submit_btn.pack(pady=20, padx=20, fill="x")
+
+    def edit_supplier(self, supplier):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Edit Supplier")
+        dialog.geometry("450x450")
+        dialog.grab_set()
+
+        fields = {
+            "Name": ctk.StringVar(value=supplier.get("name", "")),
+            "Contact": ctk.StringVar(value=supplier.get("contact", "")),
+            "Email": ctk.StringVar(value=supplier.get("email", "")),
+            "Status": ctk.StringVar(value=supplier.get("status", "Active"))
+        }
+
+        for i, (field, var) in enumerate(fields.items()):
+            label = ctk.CTkLabel(dialog, text=field, font=("Arial", 12), text_color="#ffffff")
+            label.pack(pady=(15 if i == 0 else 10, 5), padx=20, anchor="w")
+
+            if field == "Status":
+                entry = ctk.CTkOptionMenu(
+                    dialog,
+                    values=["Active", "Inactive"],
+                    variable=var,
+                    font=("Arial", 11)
+                )
+            else:
+                entry = ctk.CTkEntry(dialog, textvariable=var, font=("Arial", 11))
+
+            entry.pack(fill="x", padx=20, pady=5)
+
+        def submit():
+            supplier["name"] = fields["Name"].get()
+            supplier["contact"] = fields["Contact"].get()
+            supplier["email"] = fields["Email"].get()
+            supplier["status"] = fields["Status"].get()
+
+            self.save_data()
+            messagebox.showinfo("Success", "Supplier updated successfully!")
+            dialog.destroy()
+            self.show_section("suppliers")
+
+        submit_btn = ctk.CTkButton(
+            dialog,
+            text="Update Supplier",
+            command=submit,
+            fg_color="#00a8ff",
+            hover_color="#0088cc",
+            font=("Arial", 12)
+        )
+        submit_btn.pack(pady=20, padx=20, fill="x")
+
+    def delete_supplier(self, supplier):
+        if messagebox.askyesno("Confirm Delete", f"Delete supplier {supplier.get('name', '')}?"):
+            try:
+                self.suppliers_data.remove(supplier)
+            except ValueError:
+                pass
+            self.save_data()
+            messagebox.showinfo("Success", "Supplier deleted successfully!")
+            self.show_section("suppliers")
 
 
 if __name__ == "__main__":
